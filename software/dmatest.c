@@ -35,49 +35,47 @@ int SetupInterruptSystem(XScuGic *xScuGicInstancePtr)
 
 int main()
 {
-	init_platform();
-    ps7_post_config();
+    	init_platform();
+    	ps7_post_config();
 
-    //Enable traffic generator
-    Xil_Out32(XPAR_TRAFFICGEN_0_S00_AXI_BASEADDR, 1);
-    Xil_Out32(XPAR_TRAFFICGEN_0_S00_AXI_BASEADDR+0x4, NUM_OF_WORDS);
+    	//Enable traffic generator
+    	Xil_Out32(XPAR_TRAFFICGEN_0_S00_AXI_BASEADDR, 1);
+    	Xil_Out32(XPAR_TRAFFICGEN_0_S00_AXI_BASEADDR+0x4, NUM_OF_WORDS);
 
-    // Initialize DMA (Set bits 0 and 12 of the DMA control register)
-    Xil_Out32(XPAR_AXI_DMA_0_BASEADDR + OFFSET_S2MM_DMACR, Xil_In32(XPAR_AXI_DMA_0_BASEADDR + OFFSET_S2MM_DMACR) | 0x1001);
+    	// Initialize DMA (Set bits 0 and 12 of the DMA control register)
+    	Xil_Out32(XPAR_AXI_DMA_0_BASEADDR + OFFSET_S2MM_DMACR, Xil_In32(XPAR_AXI_DMA_0_BASEADDR + OFFSET_S2MM_DMACR) | 0x1001);
 
+    	//Interrupt system and interrupt handling
+    	GicConfig = XScuGic_LookupConfig(XPAR_PS7_SCUGIC_0_DEVICE_ID);
+    	if (NULL == GicConfig)
+    	{
+    		return XST_FAILURE;
+    	}
+    	int status = XScuGic_CfgInitialize(&InterruptController, GicConfig, GicConfig -> CpuBaseAddress);
+    	if (status != XST_SUCCESS)
+    	{
+    		return XST_FAILURE;
+    	}
+    	status = SetupInterruptSystem(&InterruptController);
+    	if (status != XST_SUCCESS)
+    	{
+    		return XST_FAILURE;
+    	}
+    	status = XScuGic_Connect(&InterruptController, XPAR_FABRIC_AXI_DMA_0_S2MM_INTROUT_INTR, (Xil_ExceptionHandler)InterruptHandler, NULL);
+    	if (status != XST_SUCCESS)
+    	{
+    		return XST_FAILURE;
+    	}
+    	XScuGic_Enable(&InterruptController, XPAR_FABRIC_AXI_DMA_0_S2MM_INTROUT_INTR);
 
-
-    //Interrupt system and interrupt handling
-    GicConfig = XScuGic_LookupConfig(XPAR_PS7_SCUGIC_0_DEVICE_ID);
-    if (NULL == GicConfig)
-    {
-    	return XST_FAILURE;
-    }
-    int status = XScuGic_CfgInitialize(&InterruptController, GicConfig, GicConfig -> CpuBaseAddress);
-    if (status != XST_SUCCESS)
-    {
-    	return XST_FAILURE;
-    }
-    status = SetupInterruptSystem(&InterruptController);
-    if (status != XST_SUCCESS)
-    {
-    	return XST_FAILURE;
-    }
-    status = XScuGic_Connect(&InterruptController, XPAR_FABRIC_AXI_DMA_0_S2MM_INTROUT_INTR, (Xil_ExceptionHandler)InterruptHandler, NULL);
-    if (status != XST_SUCCESS)
-    {
-    	return XST_FAILURE;
-    }
-    XScuGic_Enable(&InterruptController, XPAR_FABRIC_AXI_DMA_0_S2MM_INTROUT_INTR);
-
-    //Program DMA transfer parameters (i) destination address (ii) length
+    	//Program DMA transfer parameters (i) destination address (ii) length
 	Xil_Out32(XPAR_AXI_DMA_0_BASEADDR+OFFSET_S2MMDA, OFFSET_MEM_WRITE);
 	Xil_Out32(XPAR_AXI_DMA_0_BASEADDR+OFFSET_S2MM_LENGTH, 4*NUM_OF_WORDS);
 
-    cleanup_platform();
-    for (int i=0; i<512; i++){
-    	xil_printf("DDR Value : %d\n\r", Xil_In32(OFFSET_MEM_WRITE +4*i));
-    }
-    return 0;
+    	cleanup_platform();
+    	for (int i=0; i<512; i++){
+    		xil_printf("DDR Value : %d\n\r", Xil_In32(OFFSET_MEM_WRITE +4*i));
+    	}
+    	return 0;
 }
 
